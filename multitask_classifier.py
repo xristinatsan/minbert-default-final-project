@@ -355,7 +355,7 @@ def train_multitask(args):
 
         avg_train_loss = train_loss / num_batches
 
-        _, _, _, para_dev_acc, _, _ = model_eval_multitask(None, para_dev_dataloader, None, model, device)
+        _, _, _, para_dev_acc, _, _, _, _, _= model_eval_multitask(None, para_dev_dataloader, None, model, device)
 
         if para_dev_acc > best_quora_dev_acc:
             best_quora_dev_acc = para_dev_acc
