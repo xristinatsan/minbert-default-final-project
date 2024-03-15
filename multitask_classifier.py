@@ -245,7 +245,7 @@ def train_multitask(args):
 
             optimizer.zero_grad()
             sst_logits = model.predict_sentiment(sst_batch_ids, sst_batch_mask)
-            sst_loss = F.cross_entropy(logits, sst_batch_labels.view(-1), reduction='sum') / args.batch_size
+            sst_loss = F.cross_entropy(sst_logits, sst_batch_labels.view(-1), reduction='sum') / args.batch_size
 
             sst_loss.backward()
             optimizer.step()
