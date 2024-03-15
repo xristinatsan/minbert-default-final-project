@@ -312,6 +312,43 @@ def train_multitask(args):
 
         print(f"Epoch {epoch}: train loss : {train_loss :.3f}, sst train acc : {sst_train_acc :.3f}, para train acc : {para_train_acc :.3f}, sts train acc : {sts_train_acc :.3f}, sst dev acc : {sst_dev_acc :.3f}, para dev acc : {para_dev_acc :.3f}, sts dev acc : {sts_dev_acc :.3f}")
 
+    # Additional finetuning on the Quora dataset
+    best_quora_dev_acc = 0
+
+    for epoch in range(5):
+        finetune_quora_num_batches = 0
+        finetune_quora_train_loss = 0
+
+        for batch in tqdm(para_train_dataloader, desc=f'Fine-Tuning Epoch {epoch}'):
+            para_ids1, para_mask1, para_ids2, para_mask2, para_labels = map(
+                lambda x: x.to(device), 
+                (batch['token_ids_1'], batch['attention_mask_1'],
+                 batch['token_ids_2'], batch['attention_mask_2'],
+                 batch['labels']))
+
+            # Zero gradients
+            optimizer.zero_grad()
+
+            # Forward pass for paraphrase detection
+            para_logits = model.predict_paraphrase(para_ids1, para_mask1, para_ids2, para_mask2)
+
+            # Compute loss and backpropagate
+            loss = F.binary_cross_entropy_with_logits(para_logits.squeeze(), para_labels.float())
+            loss.backward()
+            optimizer.step()
+
+            finetune_quora_train_loss += loss.item()
+            finetune_quora_num_batches += 1
+
+        avg_train_loss = train_loss / num_batches
+
+        _, _, _, para_dev_acc, _, _ = model_eval_multitask(None, para_dev_dataloader, None, model, device)
+
+        if para_dev_acc > best_quora_dev_acc:
+            best_quora_dev_acc = para_dev_acc
+            save_model(model, optimizer, args, config, args.filepath)
+
+        print(f"Epoch {epoch}: Average Training Loss: {avg_train_loss:.4f}, Quora Dev Accuracy: {para_dev_acc:.4f}")
 
 def test_multitask(args):
     '''Test and save predictions on the dev and test sets of all three tasks.'''
