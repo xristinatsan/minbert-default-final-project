@@ -60,7 +60,39 @@ class AdamW(Optimizer):
                 # Refer to the default project handout for more details.
 
                 ### TODO
-                raise NotImplementedError
+
+                # mt <- b1 * m_t-1 + (1 - b1) * gt
+                beta1, beta2 = group['betas']
+                eps = group['eps']
+                weight_decay = group['weight_decay']
+                alpha = group['lr']
+
+                if len(state) == 0:
+                    state['step'] = 0
+                    state['mt'] = torch.zeros_like(p.data)
+                    state['vt'] = torch.zeros_like(p.data)
+                
+                mt = state['mt']
+                vt = state['vt']
+                state['step'] += 1
+
+                mt.mul_(beta1).add_(grad, alpha=1-beta1)
+
+                # vt <- b2 * v_t-1 + (1-b2) * gt^2
+                vt.mul_(beta2).add_(torch.pow(grad, 2), alpha=1-beta2)
+
+                #mt_hat <- mt/(1-b1^t)
+                t = state['step']
+                mt_hat = mt / (1 - beta1 ** t)
+
+                #vt_hat <- vt/(1-b2^t)
+                vt_hat = vt / (1 - beta2 ** t)
+
+                # theta_t <- theta_t-1 - alpha * m_hat_t/(sqrt(v_hat_t) + eps)
+                p.data.addcdiv_(mt_hat, vt_hat.sqrt().add_(eps), value=-alpha)  
+
+                if weight_decay != 0:
+                    p.data.add_(p.data, alpha=-weight_decay * alpha)           
 
 
         return loss
