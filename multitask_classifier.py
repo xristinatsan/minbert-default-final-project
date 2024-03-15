@@ -287,7 +287,7 @@ def train_multitask(args):
             sts_batch_labels = sts_batch_labels.to(device)
 
             optimizer.zero_grad()
-            sts_logs = model.predict_similarity(sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_batch_mask2)
+            sts_logits = model.predict_similarity(sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_batch_mask2)
             sts_loss = F.mse_loss(sts_logits.squeeze(), sts_batch_labels)
            
             sts_loss.backward()
