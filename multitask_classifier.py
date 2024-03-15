@@ -277,7 +277,7 @@ def train_multitask(args):
                     quora_iter = iter(para_train_dataloader)
 
             sts_batch = next(sts_iter)
-            sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_sts_mask2, sts_batch_labels = (sts_batch['token_ids_1'],
+            sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_batch_mask2, sts_batch_labels = (sts_batch['token_ids_1'],
                                                 sts_batch['attention_mask_1'], sts_batch['token_ids_2'], sts_batch['attention_mask_2'], 
                                                 sts_batch['labels'])
             sts_batch_ids1 = sts_batch_ids1.to(device)
