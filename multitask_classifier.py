@@ -280,6 +280,8 @@ def train_multitask(args):
             sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_batch_mask2, sts_batch_labels = (sts_batch['token_ids_1'],
                                                 sts_batch['attention_mask_1'], sts_batch['token_ids_2'], sts_batch['attention_mask_2'], 
                                                 sts_batch['labels'])
+
+            sts_batch_labels = sts_batch_labels.float()
             sts_batch_ids1 = sts_batch_ids1.to(device)
             sts_batch_mask1 = sts_batch_mask1.to(device)
             sts_batch_ids2 = sts_batch_ids2.to(device)
