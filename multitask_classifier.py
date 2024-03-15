@@ -227,7 +227,9 @@ def train_multitask(args):
 
     lr = args.lr
     optimizer = AdamW(model.parameters(), lr=lr)
-    best_avg_dev_acc = 0
+    best_sst_dev_acc = 0
+    best_para_dev_acc = 0
+    best_sts_dev_corr = 0
 
     # Run for the specified number of epochs.
     for epoch in range(args.epochs):
@@ -301,13 +303,24 @@ def train_multitask(args):
 
         train_loss = train_loss / (num_batches)
 
-        sst_train_acc, _, _, para_train_acc, _, _, sts_train_acc = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
-        sst_dev_acc, _, _, para_dev_acc, _, _, sts_dev_acc = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
+        sst_train_acc, _, _, para_train_acc, _, _, sts_train_corr, _, _ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
+        sst_dev_acc, _, _, para_dev_acc, _, _, sts_dev_corr, _, _ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
 
-        avg_dev_acc = (sst_dev_acc + para_dev_acc + sts_dev_acc) / 3
+        improvement = False
+        
+        if sst_dev_acc > best_sst_dev_acc:
+            best_sst_dev_acc = sst_dev_acc
+            improvement = True
+        
+        if para_dev_acc > best_para_dev_acc:
+            best_para_dev_acc = para_dev_acc
+            improvement = True
+    
+        if sts_dev_corr > best_sts_dev_corr:
+            best_sts_dev_corr = sts_dev_corr
+            improvement = True
 
-        if avg_dev_acc > best_avg_dev_acc:
-            best_avg_dev_acc = avg_dev_acc
+        if improvement:
             save_model(model, optimizer, args, config, args.filepath)
 
         print(f"Epoch {epoch}: train loss : {train_loss :.3f}, sst train acc : {sst_train_acc :.3f}, para train acc : {para_train_acc :.3f}, sts train acc : {sts_train_acc :.3f}, sst dev acc : {sst_dev_acc :.3f}, para dev acc : {para_dev_acc :.3f}, sts dev acc : {sts_dev_acc :.3f}")
