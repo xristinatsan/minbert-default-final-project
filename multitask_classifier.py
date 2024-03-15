@@ -210,7 +210,7 @@ def train_multitask(args):
     sst_iter = cycle(sst_train_dataloader)
     sts_iter = cycle(sts_train_dataloader)
 
-    quora_batches_per_epoch = int(len(para_train_dataloader) * (len(sst_train_data) / len(quora_train_data)))
+    quora_batches_per_epoch = int(len(sst_train_dataloader) * (len(sst_train_data) / len(para_train_data)))
     quora_iter = iter(para_train_dataloader)
 
     # Init model.
