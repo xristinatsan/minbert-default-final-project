@@ -326,26 +326,108 @@ def train_multitask(args):
         print(f"Epoch {epoch}: train loss : {train_loss :.3f}, sst train acc : {sst_train_acc :.3f}, para train acc : {para_train_acc :.3f}, sts train acc : {sts_train_corr :.3f}, sst dev acc : {sst_dev_acc :.3f}, para dev acc : {para_dev_acc :.3f}, sts dev acc : {sts_dev_corr :.3f}")
 
     # Additional finetuning on the Quora dataset
+    finetune_quora(args, model, optimizer, para_train_dataloader, para_dev_dataloader, config, device)
+
+    # Additional finetuning on the SST dataset
+    finetune_sst(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, config, device)
+
+    # Additional finetuning on the STS dataset
+    finetune_sts(args, model, optimizer, sts_train_dataloader, sts_dev_dataloader, config, device)
+
+def finetune_sst(args, model, optimizer, train_dataloader, dev_dataloader, config, device):
+    # Additional finetuning on the SST dataset
+    best_sst_dev_acc = 0
+
+    for epoch in range(5):
+        finetune_sst_num_batches = 0
+        finetune_sst_train_loss = 0
+
+        for batch in tqdm(range(len(train_dataloader)), desc=f'train-{epoch}'):
+            sst_batch_ids, sst_batch_mask, sst_batch_labels = (batch['token_ids'],
+                                       batch['attention_mask'], batch['labels'])
+
+            sst_batch_ids = sst_batch_ids.to(device)
+            sst_batch_mask = sst_batch_mask.to(device)
+            sst_batch_labels = sst_batch_labels.to(device)
+
+            optimizer.zero_grad()
+            sst_logits = model.predict_sentiment(sst_batch_ids, sst_batch_mask)
+            sst_loss = F.cross_entropy(sst_logits, sst_batch_labels.view(-1), reduction='sum') / args.batch_size
+
+            sst_loss.backward()
+            optimizer.step()
+
+            finetune_sst_train_loss += sst_loss.item()
+            finetune_sst_num_batches += 1
+
+        avg_train_loss = finetune_sst_train_loss / finetune_sst_num_batches
+
+        sst_dev_acc, _, _, _, _, _, _, _, _= model_eval_multitask(None, dev_dataloader, None, model, device)
+
+        if sst_dev_acc > best_sst_dev_acc:
+            best_sst_dev_acc = sst_dev_acc
+            save_model(model, optimizer, args, config, args.filepath)
+
+        print(f"Epoch {epoch}: Average Training Loss: {avg_train_loss:.4f}, SST Dev Accuracy: {sst_dev_acc:.4f}")
+
+def finetune_sts(args, model, optimizer, train_dataloader, dev_dataloader, config, device):
+     # Additional finetuning on the Quora dataset
+    best_sts_dev_acc = 0
+
+    for epoch in range(5):
+        finetune_sts_num_batches = 0
+        finetune_sts_train_loss = 0
+
+        for batch in tqdm(train_dataloader, desc=f'Fine-Tuning Epoch {epoch}'):
+            sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_batch_mask2, sts_batch_labels = (batch['token_ids_1'],
+                                                batch['attention_mask_1'], batch['token_ids_2'], batch['attention_mask_2'], 
+                                                batch['labels'])
+
+            sts_batch_labels = sts_batch_labels.float()
+            sts_batch_ids1 = sts_batch_ids1.to(device)
+            sts_batch_mask1 = sts_batch_mask1.to(device)
+            sts_batch_ids2 = sts_batch_ids2.to(device)
+            sts_batch_mask2 = sts_batch_mask2.to(device)
+            sts_batch_labels = sts_batch_labels.to(device)
+
+            optimizer.zero_grad()
+            sts_logits = model.predict_similarity(sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_batch_mask2)
+            sts_loss = F.mse_loss(sts_logits.squeeze(), sts_batch_labels)
+           
+            sts_loss.backward()
+            optimizer.step()
+
+            finetune_sts_train_loss += sts_loss.item()
+            finetune_sts_num_batches += 1
+
+        avg_train_loss = finetune_sts_train_loss / finetune_sts_num_batches
+
+        _, _, _, para_dev_acc, _, _, _, _, _= model_eval_multitask(None, dev_dataloader, None, model, device)
+
+        if para_dev_acc > best_quora_dev_acc:
+            best_quora_dev_acc = para_dev_acc
+            save_model(model, optimizer, args, config, args.filepath)
+
+        print(f"Epoch {epoch}: Average Training Loss: {avg_train_loss:.4f}, Quora Dev Accuracy: {para_dev_acc:.4f}")
+
+def finetune_quora(args, model, optimizer, train_dataloader, dev_dataloader, config, device):
+     # Additional finetuning on the Quora dataset
     best_quora_dev_acc = 0
 
     for epoch in range(5):
         finetune_quora_num_batches = 0
         finetune_quora_train_loss = 0
 
-        for batch in tqdm(para_train_dataloader, desc=f'Fine-Tuning Epoch {epoch}'):
+        for batch in tqdm(train_dataloader, desc=f'Fine-Tuning Epoch {epoch}'):
             para_ids1, para_mask1, para_ids2, para_mask2, para_labels = map(
                 lambda x: x.to(device), 
                 (batch['token_ids_1'], batch['attention_mask_1'],
                  batch['token_ids_2'], batch['attention_mask_2'],
                  batch['labels']))
 
-            # Zero gradients
             optimizer.zero_grad()
-
-            # Forward pass for paraphrase detection
             para_logits = model.predict_paraphrase(para_ids1, para_mask1, para_ids2, para_mask2)
 
-            # Compute loss and backpropagate
             loss = F.binary_cross_entropy_with_logits(para_logits.squeeze(), para_labels.float())
             loss.backward()
             optimizer.step()
@@ -353,15 +435,16 @@ def train_multitask(args):
             finetune_quora_train_loss += loss.item()
             finetune_quora_num_batches += 1
 
-        avg_train_loss = train_loss / num_batches
+        avg_train_loss = finetune_quora_train_loss / finetune_quora_num_batches
 
-        _, _, _, para_dev_acc, _, _, _, _, _= model_eval_multitask(None, para_dev_dataloader, None, model, device)
+        _, _, _, para_dev_acc, _, _, _, _, _= model_eval_multitask(None, dev_dataloader, None, model, device)
 
         if para_dev_acc > best_quora_dev_acc:
             best_quora_dev_acc = para_dev_acc
             save_model(model, optimizer, args, config, args.filepath)
 
         print(f"Epoch {epoch}: Average Training Loss: {avg_train_loss:.4f}, Quora Dev Accuracy: {para_dev_acc:.4f}")
+
 
 def test_multitask(args):
     '''Test and save predictions on the dev and test sets of all three tasks.'''
