@@ -326,15 +326,15 @@ def train_multitask(args):
         print(f"Epoch {epoch}: train loss : {train_loss :.3f}, sst train acc : {sst_train_acc :.3f}, para train acc : {para_train_acc :.3f}, sts train acc : {sts_train_corr :.3f}, sst dev acc : {sst_dev_acc :.3f}, para dev acc : {para_dev_acc :.3f}, sts dev acc : {sts_dev_corr :.3f}")
 
     # Additional finetuning on the Quora dataset
-    finetune_quora(args, model, optimizer, para_train_dataloader, para_dev_dataloader, config, device)
+    finetune_quora(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device)
 
     # Additional finetuning on the SST dataset
-    finetune_sst(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, config, device)
+    finetune_sst(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device)
 
     # Additional finetuning on the STS dataset
-    finetune_sts(args, model, optimizer, sts_train_dataloader, sts_dev_dataloader, config, device)
+    finetune_sts(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device)
 
-def finetune_sst(args, model, optimizer, train_dataloader, dev_dataloader, config, device):
+def finetune_sst(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device):
     # Additional finetuning on the SST dataset
     best_sst_dev_acc = 0
 
@@ -342,7 +342,7 @@ def finetune_sst(args, model, optimizer, train_dataloader, dev_dataloader, confi
         finetune_sst_num_batches = 0
         finetune_sst_train_loss = 0
 
-        for batch in tqdm(range(len(train_dataloader)), desc=f'train-{epoch}'):
+        for batch in tqdm(range(len(sst_train_dataloader)), desc=f'train-{epoch}'):
             sst_batch_ids, sst_batch_mask, sst_batch_labels = (batch['token_ids'],
                                        batch['attention_mask'], batch['labels'])
 
@@ -362,7 +362,7 @@ def finetune_sst(args, model, optimizer, train_dataloader, dev_dataloader, confi
 
         avg_train_loss = finetune_sst_train_loss / finetune_sst_num_batches
 
-        sst_dev_acc, _, _, _, _, _, _, _, _= model_eval_multitask(None, dev_dataloader, None, model, device)
+        sst_dev_acc, _, _, _, _, _, _, _, _ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
 
         if sst_dev_acc > best_sst_dev_acc:
             best_sst_dev_acc = sst_dev_acc
@@ -370,15 +370,15 @@ def finetune_sst(args, model, optimizer, train_dataloader, dev_dataloader, confi
 
         print(f"Epoch {epoch}: Average Training Loss: {avg_train_loss:.4f}, SST Dev Accuracy: {sst_dev_acc:.4f}")
 
-def finetune_sts(args, model, optimizer, train_dataloader, dev_dataloader, config, device):
+def finetune_sts(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device):
      # Additional finetuning on the Quora dataset
-    best_sts_dev_acc = 0
+    best_sts_dev_corr = 0
 
     for epoch in range(5):
         finetune_sts_num_batches = 0
         finetune_sts_train_loss = 0
 
-        for batch in tqdm(train_dataloader, desc=f'Fine-Tuning Epoch {epoch}'):
+        for batch in tqdm(sts_train_dataloader, desc=f'Fine-Tuning Epoch {epoch}'):
             sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_batch_mask2, sts_batch_labels = (batch['token_ids_1'],
                                                 batch['attention_mask_1'], batch['token_ids_2'], batch['attention_mask_2'], 
                                                 batch['labels'])
@@ -402,15 +402,15 @@ def finetune_sts(args, model, optimizer, train_dataloader, dev_dataloader, confi
 
         avg_train_loss = finetune_sts_train_loss / finetune_sts_num_batches
 
-        _, _, _, para_dev_acc, _, _, _, _, _= model_eval_multitask(None, dev_dataloader, None, model, device)
-
-        if para_dev_acc > best_quora_dev_acc:
-            best_quora_dev_acc = para_dev_acc
+        _, _, _, _, _, _, sts_dev_corr, _, _ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
+        
+        if sts_dev_corr > best_sts_dev_corr:
+            best_sts_dev_corr = sts_dev_corr
             save_model(model, optimizer, args, config, args.filepath)
 
-        print(f"Epoch {epoch}: Average Training Loss: {avg_train_loss:.4f}, Quora Dev Accuracy: {para_dev_acc:.4f}")
+        print(f"Epoch {epoch}: Average Training Loss: {avg_train_loss:.4f}, Quora Dev Accuracy: {sts_dev_corr:.4f}")
 
-def finetune_quora(args, model, optimizer, train_dataloader, dev_dataloader, config, device):
+def finetune_quora(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device):
      # Additional finetuning on the Quora dataset
     best_quora_dev_acc = 0
 
@@ -418,7 +418,7 @@ def finetune_quora(args, model, optimizer, train_dataloader, dev_dataloader, con
         finetune_quora_num_batches = 0
         finetune_quora_train_loss = 0
 
-        for batch in tqdm(train_dataloader, desc=f'Fine-Tuning Epoch {epoch}'):
+        for batch in tqdm(para_train_dataloader, desc=f'Fine-Tuning Epoch {epoch}'):
             para_ids1, para_mask1, para_ids2, para_mask2, para_labels = map(
                 lambda x: x.to(device), 
                 (batch['token_ids_1'], batch['attention_mask_1'],
@@ -437,7 +437,7 @@ def finetune_quora(args, model, optimizer, train_dataloader, dev_dataloader, con
 
         avg_train_loss = finetune_quora_train_loss / finetune_quora_num_batches
 
-        _, _, _, para_dev_acc, _, _, _, _, _= model_eval_multitask(None, dev_dataloader, None, model, device)
+        _, _, _, para_dev_acc, _, _, _, _, _= model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
 
         if para_dev_acc > best_quora_dev_acc:
             best_quora_dev_acc = para_dev_acc
