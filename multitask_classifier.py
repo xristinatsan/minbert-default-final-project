@@ -227,6 +227,7 @@ def train_multitask(args):
 
     lr = args.lr
     optimizer = AdamW(model.parameters(), lr=lr)
+    scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
     best_sst_dev_acc = 0
     best_para_dev_acc = 0
     best_sts_dev_corr = 0
@@ -323,21 +324,30 @@ def train_multitask(args):
         if improvement:
             save_model(model, optimizer, args, config, args.filepath)
 
+        scheduler.step() 
+
         print(f"Epoch {epoch}: train loss : {train_loss :.3f}, sst train acc : {sst_train_acc :.3f}, para train acc : {para_train_acc :.3f}, sts train acc : {sts_train_corr :.3f}, sst dev acc : {sst_dev_acc :.3f}, para dev acc : {para_dev_acc :.3f}, sts dev acc : {sts_dev_corr :.3f}")
 
+        threshold_sst = 0.90 * best_sst_dev_corr  
+        threshold_quora = 0.90 * best_para_dev_acc
+        threshold_sts = 0.90 * best_sts_dev_corr
+
     # Additional finetuning on the Quora dataset
-    finetune_quora(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device)
+    finetune_quora(args, model, lr, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device, threshold_sst, threshold_quora,threshold_sts)
 
     # Additional finetuning on the SST dataset
-    finetune_sst(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device)
+    finetune_sst(args, model, lr, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device, threshold_sst, threshold_quora,threshold_sts)
 
     # Additional finetuning on the STS dataset
-    finetune_sts(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device)
+    finetune_sts(args, model, lr, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device, threshold_sst, threshold_quora,threshold_sts)
 
-def finetune_sst(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device):
+def finetune_sst(args, model, lr, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device, threshold_sst, threshold_quora,threshold_sts):
     # Additional finetuning on the SST dataset
     best_sst_dev_acc = 0
 
+    optimizer = AdamW(model.parameters(), lr=lr)
+    scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
+    
     for epoch in range(5):
         finetune_sst_num_batches = 0
         finetune_sst_train_loss = 0
@@ -361,17 +371,29 @@ def finetune_sst(args, model, optimizer, sst_train_dataloader, sst_dev_dataloade
 
         avg_train_loss = finetune_sst_train_loss / finetune_sst_num_batches
 
-        sst_dev_acc, _, _, _, _, _, _, _, _ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
+        sst_dev_acc, _, _, para_dev_acc, _, _, sts_dev_corr, _, _ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
 
+        current_task_improved = False
         if sst_dev_acc > best_sst_dev_acc:
             best_sst_dev_acc = sst_dev_acc
+            current_task_improved = True
+
+        if (current_task_improved and
+            sst_dev_acc >= threshold_sst and
+            para_dev_acc >= threshold_quora and
+            sts_dev_corr >= threshold_sts):
             save_model(model, optimizer, args, config, args.filepath)
+        
+        scheduler.step()
 
         print(f"Epoch {epoch}: Average Training Loss: {avg_train_loss:.4f}, SST Dev Accuracy: {sst_dev_acc:.4f}")
 
-def finetune_sts(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device):
+def finetune_sts(args, model, lr, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device, threshold_sst, threshold_quora,threshold_sts):
      # Additional finetuning on the Quora dataset
     best_sts_dev_corr = 0
+
+    optimizer = AdamW(model.parameters(), lr=lr)
+    scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
 
     for epoch in range(5):
         finetune_sts_num_batches = 0
@@ -401,17 +423,29 @@ def finetune_sts(args, model, optimizer, sst_train_dataloader, sst_dev_dataloade
 
         avg_train_loss = finetune_sts_train_loss / finetune_sts_num_batches
 
-        _, _, _, _, _, _, sts_dev_corr, _, _ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
+        sst_dev_acc, _, _, para_dev_acc, _, _, sts_dev_corr, _, _ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
         
+        current_task_improved = False
         if sts_dev_corr > best_sts_dev_corr:
             best_sts_dev_corr = sts_dev_corr
+            current_task_improved = True
+
+        if (current_task_improved and
+            sst_dev_acc >= threshold_sst and
+            para_dev_acc >= threshold_quora and
+            sts_dev_corr >= threshold_sts):
             save_model(model, optimizer, args, config, args.filepath)
+        
+        scheduler.step()
 
         print(f"Epoch {epoch}: Average Training Loss: {avg_train_loss:.4f}, Quora Dev Accuracy: {sts_dev_corr:.4f}")
 
-def finetune_quora(args, model, optimizer, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device):
+def finetune_quora(args, model, lr, sst_train_dataloader, sst_dev_dataloader, para_train_dataloader, para_dev_dataloader, sts_train_dataloader, sts_dev_dataloader, config, device, threshold_sst, threshold_quora,threshold_sts):
      # Additional finetuning on the Quora dataset
     best_quora_dev_acc = 0
+
+    optimizer = AdamW(model.parameters(), lr=lr)
+    scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
 
     for epoch in range(5):
         finetune_quora_num_batches = 0
@@ -436,11 +470,20 @@ def finetune_quora(args, model, optimizer, sst_train_dataloader, sst_dev_dataloa
 
         avg_train_loss = finetune_quora_train_loss / finetune_quora_num_batches
 
-        _, _, _, para_dev_acc, _, _, _, _, _= model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
-
+        sst_dev_acc, _, _, para_dev_acc, _, _, sts_dev_corr, _, _ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
+        
+        current_task_improved = False
         if para_dev_acc > best_quora_dev_acc:
             best_quora_dev_acc = para_dev_acc
+            current_task_improved = True
+
+        if (current_task_improved and
+            sst_dev_acc >= threshold_sst and
+            para_dev_acc >= threshold_quora and
+            sts_dev_corr >= threshold_sts):
             save_model(model, optimizer, args, config, args.filepath)
+
+        scheduler.step()
 
         print(f"Epoch {epoch}: Average Training Loss: {avg_train_loss:.4f}, Quora Dev Accuracy: {para_dev_acc:.4f}")
 
