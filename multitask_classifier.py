@@ -342,9 +342,8 @@ def finetune_sst(args, model, optimizer, sst_train_dataloader, sst_dev_dataloade
         finetune_sst_num_batches = 0
         finetune_sst_train_loss = 0
 
-        for batch in tqdm(range(len(sst_train_dataloader)), desc=f'train-{epoch}'):
-            sst_batch_ids, sst_batch_mask, sst_batch_labels = (batch['token_ids'],
-                                       batch['attention_mask'], batch['labels'])
+        for batch in tqdm(sst_train_dataloader, desc=f'Finetune-sst-{epoch}', disable=TQDM_DISABLE):
+            sst_batch_ids, sst_batch_mask, sst_batch_labels = (batch['token_ids'], batch['attention_mask'], batch['labels'])
 
             sst_batch_ids = sst_batch_ids.to(device)
             sst_batch_mask = sst_batch_mask.to(device)
@@ -378,7 +377,7 @@ def finetune_sts(args, model, optimizer, sst_train_dataloader, sst_dev_dataloade
         finetune_sts_num_batches = 0
         finetune_sts_train_loss = 0
 
-        for batch in tqdm(sts_train_dataloader, desc=f'Fine-Tuning Epoch {epoch}'):
+        for batch in tqdm(sts_train_dataloader, desc=f'Finetune-sts {epoch}', disable=TQDM_DISABLE):
             sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_batch_mask2, sts_batch_labels = (batch['token_ids_1'],
                                                 batch['attention_mask_1'], batch['token_ids_2'], batch['attention_mask_2'], 
                                                 batch['labels'])
@@ -418,7 +417,7 @@ def finetune_quora(args, model, optimizer, sst_train_dataloader, sst_dev_dataloa
         finetune_quora_num_batches = 0
         finetune_quora_train_loss = 0
 
-        for batch in tqdm(para_train_dataloader, desc=f'Fine-Tuning Epoch {epoch}'):
+        for batch in tqdm(para_train_dataloader, desc=f'Finetune-quora {epoch}', disable=TQDM_DISABLE):
             para_ids1, para_mask1, para_ids2, para_mask2, para_labels = map(
                 lambda x: x.to(device), 
                 (batch['token_ids_1'], batch['attention_mask_1'],
