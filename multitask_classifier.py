@@ -293,8 +293,14 @@ def train_multitask(args):
             sts_batch_labels = sts_batch_labels.to(device)
 
             optimizer.zero_grad()
-            sts_logits = model.predict_similarity(sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_batch_mask2)
-            sts_loss = F.mse_loss(sts_logits.squeeze(), sts_batch_labels)
+            sts_logits1 = model(sts_batch_ids1, sts_batch_mask1)[0][:, 0, :]  # Get CLS token embedding
+            sts_logits2 = model(sts_batch_ids2, sts_batch_mask2)[0][:, 0, :]  # Get CLS token embedding
+
+            # Convert labels from continuous to binary (-1 or 1)
+            # Assuming sts_batch_labels in [0, 1], where 1 means similar and 0 not similar
+            cos_labels = 2 * sts_batch_labels - 1  # Convert to -1, 1
+
+            sts_loss = cosine_loss(sts_logits1, sts_logits2, cos_labels)
            
             sts_loss.backward()
             optimizer.step()
@@ -396,6 +402,8 @@ def finetune_sts(args, model, lr, sst_train_dataloader, sst_dev_dataloader, para
     optimizer = AdamW(model.parameters(), lr=lr)
     scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
 
+    cosine_loss = nn.CosineEmbeddingLoss()
+
     for epoch in range(5):
         finetune_sts_num_batches = 0
         finetune_sts_train_loss = 0
@@ -413,8 +421,14 @@ def finetune_sts(args, model, lr, sst_train_dataloader, sst_dev_dataloader, para
             sts_batch_labels = sts_batch_labels.to(device)
 
             optimizer.zero_grad()
-            sts_logits = model.predict_similarity(sts_batch_ids1, sts_batch_mask1, sts_batch_ids2, sts_batch_mask2)
-            sts_loss = F.mse_loss(sts_logits.squeeze(), sts_batch_labels)
+            sts_logits1 = model(sts_batch_ids1, sts_batch_mask1)[0][:, 0, :]  # Get CLS token embedding
+            sts_logits2 = model(sts_batch_ids2, sts_batch_mask2)[0][:, 0, :]  # Get CLS token embedding
+
+            # Convert labels from continuous to binary (-1 or 1)
+            # Assuming sts_batch_labels in [0, 1], where 1 means similar and 0 not similar
+            cos_labels = 2 * sts_batch_labels - 1  # Convert to -1, 1
+
+            sts_loss = cosine_loss(sts_logits1, sts_logits2, cos_labels)
            
             sts_loss.backward()
             optimizer.step()
