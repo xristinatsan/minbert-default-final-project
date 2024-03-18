@@ -329,7 +329,7 @@ def train_multitask(args):
 
         print(f"Epoch {epoch}: train loss : {train_loss :.3f}, sst train acc : {sst_train_acc :.3f}, para train acc : {para_train_acc :.3f}, sts train acc : {sts_train_corr :.3f}, sst dev acc : {sst_dev_acc :.3f}, para dev acc : {para_dev_acc :.3f}, sts dev acc : {sts_dev_corr :.3f}")
 
-        threshold_sst = 0.90 * best_sst_dev_corr  
+        threshold_sst = 0.90 * best_sst_dev_acc  
         threshold_quora = 0.90 * best_para_dev_acc
         threshold_sts = 0.90 * best_sts_dev_corr
 
