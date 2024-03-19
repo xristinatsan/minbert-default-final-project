@@ -314,21 +314,23 @@ def train_multitask(args):
         sst_train_acc, _, _, para_train_acc, _, _, sts_train_corr, _, _ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
         sst_dev_acc, _, _, para_dev_acc, _, _, sts_dev_corr, _, _ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
 
-        improvement = False
+        sst_improvement = False
+        sts_improvement = False
+        para_improvement = False
         
         if sst_dev_acc > best_sst_dev_acc:
             best_sst_dev_acc = sst_dev_acc
-            improvement = True
+            sst_improvement = True
         
         if para_dev_acc > best_para_dev_acc:
             best_para_dev_acc = para_dev_acc
-            improvement = True
+            para_improvement = True
     
         if sts_dev_corr > best_sts_dev_corr:
             best_sts_dev_corr = sts_dev_corr
-            improvement = True
+            sts_improvement = True
 
-        if improvement:
+        if sst_improvement or sts_improvement or para_improvement:
             save_model(model, optimizer, args, config, args.filepath)
 
         scheduler.step() 
