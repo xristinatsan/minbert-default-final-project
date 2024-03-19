@@ -357,7 +357,7 @@ def finetune_sst(args, model, lr, sst_train_dataloader, sst_dev_dataloader, para
     optimizer = AdamW(model.parameters(), lr=lr)
     scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
     
-    for epoch in range(5):
+    for epoch in range(2):
         finetune_sst_num_batches = 0
         finetune_sst_train_loss = 0
 
@@ -406,7 +406,7 @@ def finetune_sts(args, model, lr, sst_train_dataloader, sst_dev_dataloader, para
 
     cosine_loss = nn.CosineEmbeddingLoss()
 
-    for epoch in range(5):
+    for epoch in range(2):
         finetune_sts_num_batches = 0
         finetune_sts_train_loss = 0
 
@@ -464,7 +464,7 @@ def finetune_quora(args, model, lr, sst_train_dataloader, sst_dev_dataloader, pa
     optimizer = AdamW(model.parameters(), lr=lr)
     scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
 
-    for epoch in range(5):
+    for epoch in range(2):
         finetune_quora_num_batches = 0
         finetune_quora_train_loss = 0
 
